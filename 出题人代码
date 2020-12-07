@@ -1,0 +1,169 @@
+/*!
+ * MindPlus
+ * mpython
+ *
+ */
+#include <MPython.h>
+#include <DFRobot_Iot.h>
+#include <mPython_tinywebdb.h>
+
+// 动态变量
+String         mind_s_WenTi, mind_s_Yi, mind_s_Jia;
+volatile float mind_n_KaiShiJiShi, mind_n_QiangDaJiShi, mind_n_HaoMiao, mind_n_Miao,
+               mind_n_Fen, mind_n_ChengJi1, mind_n_ChengJi2, mind_n_flag, mind_n_QiangDaShiJian2,
+               mind_n_QiangDaShiJian1, mind_n_QiangDaid1;
+// 函数声明
+void DF_XianShiShiJian();
+void obloqMqttEventT1(String& message);
+void obloqMqttEventT2(String& message);
+// 静态常量
+const String topics[5] = {"B-G-5IFGg","aZ785SKMR","TRPDSr0Mg","E7UDSr0Mg","iZiaSrAMg"};
+const MsgHandleCb msgHandles[5] = {NULL,obloqMqttEventT1,obloqMqttEventT2,NULL,NULL};
+// 创建对象
+DFRobot_Iot       myIot;
+mPython_TinyWebDB mydb;
+
+
+// 主程序开始
+void setup() {
+	mPython.begin();
+	dfrobotRandomSeed();
+	myIot.setMqttCallback(msgHandles);
+	Serial.begin(9600);
+	mind_n_ChengJi1 = 0;
+	mind_n_ChengJi2 = 0;
+	myIot.wifiConnect("hUC", "5832615ASD");
+	while (!myIot.wifiStatus()) {yield();}
+	display.setCursorLine(1);
+	display.printLine("欢迎来到抢答游戏！");
+	myIot.init("iot.dfrobot.com.cn","c9r0IiKMR","","5r9AIiKMRz",topics,1883);
+	myIot.connect();
+	while (!myIot.connected()) {yield();}
+	display.setCursorLine(2);
+	display.printLine("请按照提示操作！");
+	mydb.setServerParameter("http://tinywebdb.appinventor.space/api", "zongji","752cb495");
+	display.setCursorLine(3);
+	display.printLine("请按按键A开始出题");
+	mind_n_flag = 0;
+}
+void loop() {
+	if ((buttonA.isPressed())) {
+		display.fillScreen(0);
+		display.setCursorLine(1);
+		display.printLine("问题已发出，请按B键开始");
+		mind_s_WenTi = mydb.getTag((String((random(1, 3+1)))));
+		myIot.publish(topic_0, mind_s_WenTi);
+		myIot.publish(topic_0, "出题人：吴超华");
+		while (!(buttonB.isPressed())) {yield();}
+		mind_n_flag = 0;
+		myIot.publish(topic_0, "抢答开始！");
+		mind_n_KaiShiJiShi = millis();
+		display.fillScreen(0);
+		while (!(mind_n_flag==1)) {
+			DF_XianShiShiJian();
+			yield();
+		}
+		if ((mind_n_QiangDaShiJian2>mind_n_QiangDaShiJian1)) {
+			display.fillScreen(0);
+			display.setCursorLine(1);
+			display.printLine((String("乙抢到了，选择为：") + String(mind_s_Yi)));
+			display.setCursorLine(3);
+			display.printLine("若答错就按B键");
+			display.setCursorLine(4);
+			display.printLine("若要开始下一题，请按A键");
+			display.setCursorLine(2);
+			display.printLine("若答对就按A+B键");
+			mind_n_QiangDaid1 = 2;
+			myIot.publish(topic_4, "抢到了");
+		}
+		else {
+			display.fillScreen(0);
+			display.setCursorLine(1);
+			display.printLine((String("甲抢到了，选择为：") + String(mind_s_Jia)));
+			display.setCursorLine(2);
+			display.printLine("若答对就按A+B键");
+			display.setCursorLine(3);
+			display.printLine("若答错就按B键");
+			display.setCursorLine(4);
+			display.printLine("若要开始下一题，请按A键");
+			mind_n_QiangDaid1 = 1;
+			myIot.publish(topic_3, "抢到了");
+		}
+	}
+	if ((buttonAB.isPressed())) {
+		if ((mind_n_QiangDaid1==1)) {
+			mind_n_ChengJi1 += 1;
+			display.fillInLine(4, 0);
+			display.setCursorLine(4);
+			display.printLine((String("甲成绩：") + String(mind_n_ChengJi1)));
+			myIot.publish(topic_3, "你答对了");
+		}
+		else if ((mind_n_QiangDaid1==2)) {
+			mind_n_ChengJi2 += 1;
+			display.fillInLine(4, 0);
+			display.setCursorLine(4);
+			display.printLine((String("乙成绩：") + String(mind_n_ChengJi2)));
+			myIot.publish(topic_4, "你答对了");
+		}
+	}
+	if ((buttonB.isPressed())) {
+		if ((mind_n_QiangDaid1==1)) {
+			myIot.publish(topic_3, "你答错了");
+		}
+		else if ((mind_n_QiangDaid1==2)) {
+			myIot.publish(topic_4, "你答错了");
+		}
+	}
+}
+
+
+// 自定义函数
+void DF_XianShiShiJian() {
+	display.setCursor(68, 23);
+	display.print("：");
+	display.setCursor(36, 23);
+	display.print("：");
+	mind_n_QiangDaJiShi = (millis() - mind_n_KaiShiJiShi);
+	mind_n_HaoMiao = (((int)(mind_n_QiangDaJiShi / 10)) % ((int)100));
+	if ((mind_n_HaoMiao<10)) {
+		display.setCursor(84, 23);
+		display.print((String("0") + String((((int)mind_n_HaoMiao) % ((int)100)))));
+	}
+	else {
+		display.setCursor(84, 23);
+		display.print(mind_n_HaoMiao);
+	}
+	mind_n_QiangDaJiShi = (mind_n_QiangDaJiShi / 1000);
+	mind_n_Miao = (((int)mind_n_QiangDaJiShi) % ((int)60));
+	if ((mind_n_Miao<10)) {
+		display.setCursor(52, 23);
+		display.print((String("0") + String((((int)mind_n_Miao) % ((int)60)))));
+	}
+	else {
+		display.setCursor(52, 23);
+		display.print(mind_n_Miao);
+	}
+	mind_n_Fen = (((int)(mind_n_QiangDaJiShi / 60)) % ((int)60));
+	if ((mind_n_Fen<10)) {
+		display.setCursor(20, 23);
+		display.print((String("0") + String((((int)mind_n_Fen) % ((int)60)))));
+	}
+	else {
+		display.setCursor(20, 23);
+		display.print((((int)mind_n_Fen) % ((int)60)));
+	}
+}
+
+// 事件回调函数
+void obloqMqttEventT1(String& message) {
+	mind_n_QiangDaShiJian1 = millis();
+	mind_n_flag = 1;
+	mind_s_Jia = message;
+	Serial.println((String("time1：") + String(mind_n_QiangDaShiJian1)));
+}
+void obloqMqttEventT2(String& message) {
+	mind_n_QiangDaShiJian2 = millis();
+	mind_n_flag = 1;
+	mind_s_Yi = message;
+	Serial.println((String("time2：") + String(mind_n_QiangDaShiJian2)));
+}

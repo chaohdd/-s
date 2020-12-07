@@ -1,0 +1,90 @@
+/*!
+ * MindPlus
+ * mpython
+ *
+ */
+#include <MPython.h>
+#include <DFRobot_Iot.h>
+// 函数声明
+void obloqMqttEventT0(String& message);
+void obloqMqttEventT4(String& message);
+// 静态常量
+const String topics[5] = {"B-G-5IFGg","aZ785SKMR","TRPDSr0Mg","E7UDSr0Mg","iZiaSrAMg"};
+const MsgHandleCb msgHandles[5] = {obloqMqttEventT0,NULL,NULL,NULL,obloqMqttEventT4};
+// 创建对象
+DFRobot_Iot myIot;
+
+
+// 主程序开始
+void setup() {
+	mPython.begin();
+	myIot.setMqttCallback(msgHandles);
+	myIot.wifiConnect("hUC", "5832615ASD");
+	while (!myIot.wifiStatus()) {yield();}
+	display.setCursorLine(1);
+	display.printLine("欢迎来到抢答游戏！");
+	myIot.init("iot.dfrobot.com.cn","c9r0IiKMR","","5r9AIiKMRz",topics,1883);
+	myIot.connect();
+	while (!myIot.connected()) {yield();}
+	display.setCursorLine(2);
+	display.printLine("A键选A，B键选B");
+}
+void loop() {
+	if ((buttonA.isPressed())) {
+		myIot.publish(topic_2, "A");
+	}
+	else if ((buttonB.isPressed())) {
+		myIot.publish(topic_2, "B");
+	}
+}
+
+
+// 事件回调函数
+void obloqMqttEventT0(String& message) {
+	display.fillInLine(2, 0);
+	if ((message==String("抢答开始！"))) {
+		display.setCursorLine(2);
+		display.printLine("3秒后开始抢答！");
+		delay(1000);
+		display.fillInLine(2, 0);
+		display.setCursorLine(2);
+		display.printLine("3");
+		delay(1000);
+		display.fillInLine(2, 0);
+		display.setCursorLine(2);
+		display.printLine("2");
+		delay(1000);
+		display.fillInLine(2, 0);
+		display.setCursorLine(2);
+		display.printLine("1");
+		delay(1000);
+		display.fillInLine(2, 0);
+		display.setCursorLine(2);
+		display.printLine("开始抢答！");
+	}
+	else if ((message==String("出题人：吴超华"))) {
+		display.setCursorLine(2);
+		display.printLine("出题人：吴超华");
+	}
+	else {
+		display.setCursorLine(1);
+		display.printLine(message);
+	}
+}
+void obloqMqttEventT4(String& message) {
+	if ((message==String("你答对了"))) {
+		display.fillInLine(2, 0);
+		display.setCursorLine(2);
+		display.printLine("抢答成功且回答正确！");
+	}
+	else if ((message==String("抢到了"))) {
+		display.fillInLine(2, 0);
+		display.setCursorLine(2);
+		display.printLine("抢答成功！");
+	}
+	else if ((message==String("你答错了"))) {
+		display.fillInLine(2, 0);
+		display.setCursorLine(1);
+		display.printLine("答错了，下次加油！");
+	}
+}
